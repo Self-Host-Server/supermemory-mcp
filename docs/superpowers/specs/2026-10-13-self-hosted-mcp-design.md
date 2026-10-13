@@ -11,6 +11,7 @@
 The official Supermemory MCP server (`mcp.supermemory.ai`) runs on Cloudflare Workers and requires the hosted Supermemory API. Users who self-host the core Supermemory server (via Docker to `localhost:6767` or similar) have no way to access their memories via MCP protocol — the official MCP endpoint is cloud-only.
 
 This repo provides a reusable, self-hostable MCP server that bridges any self-hosted Supermemory REST API to the MCP protocol, so users can:
+
 - Run their own Supermemory instance (REST API, no MCP)
 - Deploy this MCP server as a Docker container on the same network
 - Connect Claude (or any MCP client) to the MCP server via SSE over HTTP
