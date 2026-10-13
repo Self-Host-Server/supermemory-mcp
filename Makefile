@@ -1,4 +1,4 @@
-.PHONY: node conda render-docs
+.PHONY: node conda render-docs claude
 
 # Load .env file
 ifneq (,$(wildcard .env))
@@ -19,3 +19,6 @@ conda:
 
 render-docs:
 	$(run) python3 scripts/render_env_docs.py
+
+claude:
+	claude --resume $(conda_name) --model paid-premium || claude --name $(conda_name) --model paid-premium
