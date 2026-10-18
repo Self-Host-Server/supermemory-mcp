@@ -1,3 +1,7 @@
 ruff
 tox
 nodeenv
+mcp==2.3.0
+uvicorn[standard]==0.54.0
+pydantic-settings==2.16.0
+requests==2.34.2
