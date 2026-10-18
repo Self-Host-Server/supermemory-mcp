@@ -11,16 +11,16 @@
 **Success (201 Created):**
 
 Request:
+
 ```json
 {
-  "memories": [
-    {"content": "probe: remember the blue folder"}
-  ],
+  "memories": [{ "content": "probe: remember the blue folder" }],
   "containerTag": "probe_test"
 }
 ```
 
 Response:
+
 ```json
 {
   "documentId": "jG6XA2dDuVnDdSCPixaBj3",
@@ -39,11 +39,13 @@ Response:
 ```
 
 **Auth Failure (401 Unauthorized):**
+
 - Status: 401
 - Body: `{"error": "Unauthorized"}`
 - Triggered by: missing Authorization header or invalid bearer token
 
 **Notes:**
+
 - `memories` is **required array** (not a scalar `content` field)
 - `containerTag` is **required string**
 - Response contains full memory objects; use `memories[0].id` as the stored memory ID if needed
@@ -55,6 +57,7 @@ Response:
 **Success with matches (200 OK):**
 
 Request:
+
 ```json
 {
   "q": "blue folder",
@@ -63,6 +66,7 @@ Request:
 ```
 
 Response:
+
 ```json
 {
   "results": [
@@ -85,6 +89,7 @@ Response:
 **Success with no matches (200 OK):**
 
 Request:
+
 ```json
 {
   "q": "zzz_no_such_memory_zzz",
@@ -93,6 +98,7 @@ Request:
 ```
 
 Response:
+
 ```json
 {
   "results": [],
@@ -102,16 +108,19 @@ Response:
 ```
 
 **Auth Failure (401 Unauthorized):**
+
 - Status: 401
 - Body: `{"error": "Unauthorized"}`
 - Triggered by: missing Authorization header or invalid bearer token
 
 **Container Tag Behavior:**
+
 - `containerTag` is **optional** in request
 - When omitted, search returns results from **all** container tags (global search)
 - When provided, search returns results only from that container tag
 
 **Notes:**
+
 - `q` is **required string** (query text)
 - Empty results return `{"results": [], "timing": N, "total": 0}` — never null or absent
 - Each result in `results` array includes a `memory` field (the stored text) and metadata
@@ -121,10 +130,12 @@ Response:
 ## Request Headers (Both Endpoints)
 
 **Required:**
+
 - `Authorization: Bearer <SUPERMEMORY_API_KEY>` — the API key from self-hosted instance setup
 - `Content-Type: application/json`
 
 **Response Headers (Both):**
+
 - `Content-Type: application/json`
 - `Vary: Origin`
 - `Server-Timing: total;dur=<ms>;desc="Total Response Time"`
@@ -133,19 +144,20 @@ Response:
 
 ## Status Codes and Error Handling
 
-| Status | Scenario | Body |
-|--------|----------|------|
-| 201 | `/v4/memories` success | `{"documentId": "...", "memories": [...]}` |
-| 200 | `/v4/search` success (any result count) | `{"results": [...], "timing": N, "total": N}` |
-| 401 | Auth failure (any endpoint) | `{"error": "Unauthorized"}` |
-| 400 | Bad request (malformed JSON, missing required fields) | Error details (varies) |
-| 404 | Route not found | Plain text: `404 Not Found` |
+| Status | Scenario                                              | Body                                          |
+| ------ | ----------------------------------------------------- | --------------------------------------------- |
+| 201    | `/v4/memories` success                                | `{"documentId": "...", "memories": [...]}`    |
+| 200    | `/v4/search` success (any result count)               | `{"results": [...], "timing": N, "total": N}` |
+| 401    | Auth failure (any endpoint)                           | `{"error": "Unauthorized"}`                   |
+| 400    | Bad request (malformed JSON, missing required fields) | Error details (varies)                        |
+| 404    | Route not found                                       | Plain text: `404 Not Found`                   |
 
 ---
 
 ## Task 2 Implementation Notes
 
 **Client library (`server/client.py`) must:**
+
 1. POST to `/v4/memories` with `memories` array (singular content wrapped in array)
 2. POST to `/v4/search` with `q` and optional `containerTag`
 3. Parse response `results` array; return empty-result message if `total == 0`
@@ -162,4 +174,3 @@ Response:
 - **Protocol:** HTTP (no HTTPS in local self-hosted setup)
 - **API base path:** `/v4/`
 - **Auth method:** Bearer token (API key from self-hosted admin panel)
-
