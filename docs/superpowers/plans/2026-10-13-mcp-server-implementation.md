@@ -9,6 +9,7 @@
 **Architecture:** A thin shim in four modules. `config.py` loads and validates env vars. `client.py` wraps the two Supermemory REST calls, passing errors through and keeping the API key out of logs. `mcp_server.py` builds an `MCPServer` with two tools, one prompt, and a `/health` route. `main.py` exposes the Starlette ASGI app with an auth-header gate. No FastAPI, no local cache, no retries.
 
 **Tech Stack:**
+
 - Python 3.11+ (SDK floor is 3.10)
 - `mcp==2.3.0` — v2.x API, class is `MCPServer`
 - Starlette (transitive via `mcp`), uvicorn, pydantic-settings v2, requests
@@ -59,18 +60,18 @@ Five conditions the spec implies but names no test for. Each has a test assigned
 
 **Create:**
 
-| Path | Responsibility |
-|---|---|
-| `server/__init__.py` | Package marker |
-| `server/config.py` | `Settings` — env loading + validation |
-| `server/client.py` | `SupermemoryClient` — the two REST calls, error passthrough, log sanitizing |
-| `server/mcp_server.py` | `build_server()` — tools, prompt, `/health` |
-| `server/main.py` | ASGI app + auth gate; uvicorn entry point |
-| `tests/test_config.py` | Env validation |
-| `tests/test_client.py` | REST client against mocked HTTP |
-| `tests/test_server.py` | Tool behavior, auth gate, health |
-| `Dockerfile` | Python slim, non-root, uvicorn |
-| `docs/DEPLOY.md` | `.env` setup, compose, MCP client config, troubleshooting |
+| Path                   | Responsibility                                                              |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `server/__init__.py`   | Package marker                                                              |
+| `server/config.py`     | `Settings` — env loading + validation                                       |
+| `server/client.py`     | `SupermemoryClient` — the two REST calls, error passthrough, log sanitizing |
+| `server/mcp_server.py` | `build_server()` — tools, prompt, `/health`                                 |
+| `server/main.py`       | ASGI app + auth gate; uvicorn entry point                                   |
+| `tests/test_config.py` | Env validation                                                              |
+| `tests/test_client.py` | REST client against mocked HTTP                                             |
+| `tests/test_server.py` | Tool behavior, auth gate, health                                            |
+| `Dockerfile`           | Python slim, non-root, uvicorn                                              |
+| `docs/DEPLOY.md`       | `.env` setup, compose, MCP client config, troubleshooting                   |
 
 **Modify:** `requirements.txt` (runtime deps), `compose.yml` (currently empty), `.env.example` (currently only `conda_name`), `README.md` (still the template's), `pyproject.toml` (pytest + tox `test` env).
 
@@ -81,9 +82,11 @@ Five conditions the spec implies but names no test for. Each has a test assigned
 **Why this is first:** every later task is a shim over two endpoints whose request and response shapes are not recorded anywhere in this repo. The spec names the paths (`/v4/memories/add`, `/v4/search`) but not the field names. Guessing them produces a server that imports cleanly and fails on every real call. This task costs ten minutes and de-risks Tasks 2 and 3 entirely.
 
 **Files:**
+
 - Create: `docs/superpowers/specs/supermemory-api-contract.md`
 
 **Interfaces:**
+
 - Produces: documented request/response JSON for both endpoints, consumed by Task 2.
 
 - [ ] **Step 1: Find the API key and URL for the running instance**
@@ -147,10 +150,12 @@ git commit -m "docs: record self-hosted Supermemory REST contract from probing"
 ## Task 1: Configuration
 
 **Files:**
+
 - Create: `server/__init__.py`, `server/config.py`, `tests/test_config.py`
 - Modify: `requirements.txt`, `.env.example`
 
 **Interfaces:**
+
 - Produces: `Settings` (pydantic-settings `BaseSettings`) with fields `supermemory_api_url: str`, `supermemory_api_key: str`, `supermemory_container_tag: str`, and `get_settings() -> Settings`. Consumed by Tasks 2, 3, 4.
 - Note: Authentik's client ID and secret are consumed by oauth2-proxy (Task 5), **not** by this app — the app only ever sees the proxy's forwarded header. They belong in `.env` but not in `Settings`.
 
@@ -179,7 +184,7 @@ Expected: `ok`. A `ModuleNotFoundError` mentioning `fastmcp` means an `mcp<2` go
 - [ ] **Step 3: Pin the resolved versions**
 
 ```bash
-pip freeze | grep -iE '^(mcp|uvicorn|pydantic-settings|requests)=' 
+pip freeze | grep -iE '^(mcp|uvicorn|pydantic-settings|requests)='
 ```
 
 Copy the exact `==` versions into `requirements.txt`, replacing the unpinned lines from Step 1.
@@ -349,9 +354,11 @@ git commit -m "feat: add env configuration with validation"
 ## Task 2: Supermemory REST Client
 
 **Files:**
+
 - Create: `server/client.py`, `tests/test_client.py`
 
 **Interfaces:**
+
 - Consumes: `Settings` from Task 1.
 - Produces:
   - `class SupermemoryError(Exception)`
@@ -622,9 +629,11 @@ git commit -m "feat: add Supermemory REST client with error passthrough"
 ## Task 3: MCP Tools, Prompt, and Health Route
 
 **Files:**
+
 - Create: `server/mcp_server.py`, `tests/test_server.py`
 
 **Interfaces:**
+
 - Consumes: `SupermemoryClient` from Task 2.
 - Produces: `build_server(client: SupermemoryClient) -> MCPServer`, with tools `addToSupermemory(thingToRemember: str) -> str` and `searchSupermemory(informationToGet: str) -> str`, a `supermemory_prompt` prompt, and a `GET /health` custom route.
 - Tool parameter names are part of the public contract — `thingToRemember` and `informationToGet`, camelCase, matching the official server.
@@ -836,10 +845,12 @@ git commit -m "feat: add MCP tools, memory prompt, and health route"
 ## Task 4: ASGI App and Auth Gate
 
 **Files:**
+
 - Create: `server/main.py`
 - Modify: `tests/test_server.py` (append the app-level tests)
 
 **Interfaces:**
+
 - Consumes: `get_settings()` (Task 1), `SupermemoryClient` (Task 2), `build_server()` (Task 3).
 - Produces: `create_app() -> Starlette` and a module-level `app` for uvicorn (`server.main:app`). Serves MCP at `/mcp`, health at `/health`.
 
@@ -991,10 +1002,12 @@ git commit -m "feat: serve MCP over streamable HTTP behind a forwarded-user gate
 ## Task 5: Docker and Compose
 
 **Files:**
+
 - Create: `Dockerfile`, `.dockerignore`
 - Modify: `compose.yml` (currently empty)
 
 **Interfaces:**
+
 - Consumes: `requirements.txt`, `server/`, the env vars documented in Task 1's `.env.example`.
 - Produces: an image running `uvicorn server.main:app` on 5555, and a two-service stack exposing the proxy on 4180.
 
@@ -1142,9 +1155,11 @@ git commit -m "feat: add Dockerfile and compose stack behind oauth2-proxy"
 ## Task 6: Tox Test Env
 
 **Files:**
+
 - Modify: `pyproject.toml`
 
 **Interfaces:**
+
 - Produces: `tox -e test`, and `test` added to the `github` CI chain so the tests actually gate pushes.
 
 - [ ] **Step 1: Add the pytest config**
@@ -1216,10 +1231,12 @@ git commit -m "test: add pytest tox env and wire it into the CI chain"
 ## Task 7: README and Deployment Docs
 
 **Files:**
+
 - Modify: `README.md`
 - Create: `docs/DEPLOY.md`
 
 **Interfaces:**
+
 - Consumes: the `.env.example` from Task 1 and the compose stack from Task 5. Reference them; do not restate their contents (jscpd threshold is `0`).
 
 - [ ] **Step 1: Replace `README.md`**
@@ -1238,12 +1255,12 @@ leaving your network.
 
 ## What it exposes
 
-| | |
-|---|---|
-| `addToSupermemory(thingToRemember)` | Stores a memory. Same signature as the official server. |
+|                                       |                                                           |
+| ------------------------------------- | --------------------------------------------------------- |
+| `addToSupermemory(thingToRemember)`   | Stores a memory. Same signature as the official server.   |
 | `searchSupermemory(informationToGet)` | Searches memories. Same signature as the official server. |
-| `supermemory_prompt` | Primes the model to use both tools unprompted. |
-| `GET /health` | Liveness check for Docker. |
+| `supermemory_prompt`                  | Primes the model to use both tools unprompted.            |
+| `GET /health`                         | Liveness check for Docker.                                |
 
 MCP is served over Streamable HTTP at `/mcp`, behind
 [oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/) pointed at your
@@ -1297,7 +1314,7 @@ cp .env.example .env
 
 `.env.example` documents every variable. The two that must be right before
 anything works are `SUPERMEMORY_API_URL` (your instance's base URL, reachable
-*from inside Docker* — `localhost` there is the container, not your host) and
+_from inside Docker_ — `localhost` there is the container, not your host) and
 `SUPERMEMORY_API_KEY`.
 
 Generate the proxy cookie secret:
@@ -1356,7 +1373,7 @@ Both will send you through Authentik's login the first time.
 
 **401 on every MCP call.** The request is not carrying the proxy's
 `X-Forwarded-User` header. Either you are hitting the server's port directly
-instead of the proxy's 4180, or `OAUTH2_PROXY_SET_XAUTHREQUEST` / 
+instead of the proxy's 4180, or `OAUTH2_PROXY_SET_XAUTHREQUEST` /
 `OAUTH2_PROXY_PASS_BASIC_AUTH` are not set.
 
 **`Supermemory backend unreachable`.** The container cannot reach
@@ -1468,26 +1485,26 @@ Note in the PR description which steps passed, and anything deferred. If Step 4 
 
 ## Spec Coverage
 
-| Spec item | Where |
-|---|---|
-| `addToSupermemory` → `/v4/memories/add` | Tasks 2, 3 |
-| `searchSupermemory` → `/v4/search` | Tasks 2, 3 |
-| Static memory prompt | Task 3 |
-| `SUPERMEMORY_API_URL` / `_API_KEY` / `_CONTAINER_TAG` | Task 1 |
-| Always-on Docker service | Task 5 |
-| HTTP transport, configurable port | Tasks 4, 5 |
-| `GET /health` | Task 3 (route), Task 5 (healthcheck) |
-| Authentik OAuth protection | Tasks 4 (gate), 5 (proxy) |
-| Unauthenticated requests rejected | Task 4 Step 1, Task 8 Step 3 |
-| Errors pass through, nothing silent | Task 2 (`_post`), Task 3 (tool handlers) |
-| API key never logged or returned | Task 2 Steps 1/6, Task 8 Step 5 |
-| Thin shim — no cache, no retry | Task 2 by construction |
-| `.env.example` documents every var | Task 1 Step 9 |
-| Deployment and client-config docs | Task 7 |
-| Public and reusable, nothing hardcoded | Task 8 Step 6 |
-| Semver via Conventional Commits | Commit messages throughout |
-| Transport is SSE | **Deviated** — see Spec Deviations |
-| FastAPI | **Deviated** — see Spec Deviations |
+| Spec item                                             | Where                                    |
+| ----------------------------------------------------- | ---------------------------------------- |
+| `addToSupermemory` → `/v4/memories/add`               | Tasks 2, 3                               |
+| `searchSupermemory` → `/v4/search`                    | Tasks 2, 3                               |
+| Static memory prompt                                  | Task 3                                   |
+| `SUPERMEMORY_API_URL` / `_API_KEY` / `_CONTAINER_TAG` | Task 1                                   |
+| Always-on Docker service                              | Task 5                                   |
+| HTTP transport, configurable port                     | Tasks 4, 5                               |
+| `GET /health`                                         | Task 3 (route), Task 5 (healthcheck)     |
+| Authentik OAuth protection                            | Tasks 4 (gate), 5 (proxy)                |
+| Unauthenticated requests rejected                     | Task 4 Step 1, Task 8 Step 3             |
+| Errors pass through, nothing silent                   | Task 2 (`_post`), Task 3 (tool handlers) |
+| API key never logged or returned                      | Task 2 Steps 1/6, Task 8 Step 5          |
+| Thin shim — no cache, no retry                        | Task 2 by construction                   |
+| `.env.example` documents every var                    | Task 1 Step 9                            |
+| Deployment and client-config docs                     | Task 7                                   |
+| Public and reusable, nothing hardcoded                | Task 8 Step 6                            |
+| Semver via Conventional Commits                       | Commit messages throughout               |
+| Transport is SSE                                      | **Deviated** — see Spec Deviations       |
+| FastAPI                                               | **Deviated** — see Spec Deviations       |
 
 ---
 
