@@ -1,8 +1,10 @@
 """MCP tool behavior, exercised through the registered tool functions."""
 
 import pytest
+from starlette.testclient import TestClient
 
 from server.client import SupermemoryError
+from server.main import create_app
 from server.mcp_server import build_server
 
 
@@ -98,3 +100,40 @@ async def test_tools_are_registered_under_official_names():
 
     assert "addToSupermemory" in names
     assert "searchSupermemory" in names
+
+
+@pytest.fixture
+def app_client(monkeypatch):
+    monkeypatch.setenv("SUPERMEMORY_API_URL", "http://backend:6767")
+    monkeypatch.setenv("SUPERMEMORY_API_KEY", "sm_key")
+    monkeypatch.setenv("SUPERMEMORY_CONTAINER_TAG", "test_tag")
+    # Context-manager form: streamable_http_app()'s session manager needs the
+    # ASGI lifespan to run (it initializes an anyio task group in `run()`),
+    # which TestClient only sends when entered via `with`/`__enter__`.
+    with TestClient(create_app()) as client:
+        yield client
+
+
+def test_health_is_reachable_without_auth(app_client):
+    response = app_client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+
+
+def test_mcp_endpoint_rejects_request_without_forwarded_user(app_client):
+    """Review Focus 3: no tool runs for a request that bypassed the proxy."""
+    response = app_client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+
+    assert response.status_code == 401
+
+
+def test_mcp_endpoint_accepts_request_with_forwarded_user(app_client):
+    """The gate lets a proxied request through -- it is not rejecting everything."""
+    response = app_client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        headers={"X-Forwarded-User": "alice"},
+    )
+
+    assert response.status_code != 401
