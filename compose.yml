@@ -1,0 +1,54 @@
+services:
+  mcp-server:
+    build: .
+    restart: unless-stopped
+    environment:
+      SUPERMEMORY_API_URL: ${SUPERMEMORY_API_URL:?set SUPERMEMORY_API_URL in .env}
+      SUPERMEMORY_API_KEY: ${SUPERMEMORY_API_KEY:?set SUPERMEMORY_API_KEY in .env}
+      SUPERMEMORY_CONTAINER_TAG: ${SUPERMEMORY_CONTAINER_TAG:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # No ports: -- only the proxy may reach it. Publishing 5555 would expose
+    # the MCP endpoint with nothing in front but the forwarded-user check.
+    networks: [mcp]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5555/health',timeout=3).status==200 else 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+    restart: unless-stopped
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    environment:
+      OAUTH2_PROXY_PROVIDER: oidc
+      OAUTH2_PROXY_OIDC_ISSUER_URL: ${AUTHENTIK_HOST:?set AUTHENTIK_HOST in .env}/application/o/supermemory-mcp/
+      OAUTH2_PROXY_CLIENT_ID: ${AUTHENTIK_CLIENT_ID:?set AUTHENTIK_CLIENT_ID in .env}
+      OAUTH2_PROXY_CLIENT_SECRET: ${AUTHENTIK_CLIENT_SECRET:?set AUTHENTIK_CLIENT_SECRET in .env}
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:?run: openssl rand -base64 32}
+      OAUTH2_PROXY_REDIRECT_URL: ${OAUTH2_PROXY_REDIRECT_URL:-http://localhost:4180/oauth2/callback}
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_UPSTREAMS: http://mcp-server:5555
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      # Sends X-Forwarded-User upstream -- the header server/main.py requires.
+      OAUTH2_PROXY_PASS_BASIC_AUTH: "true"
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
+      # Let Docker's healthcheck through without a login round-trip.
+      OAUTH2_PROXY_SKIP_AUTH_ROUTES: ^/health$$
+    ports:
+      - "${MCP_PUBLIC_PORT:-4180}:4180"
+    networks: [mcp]
+
+networks:
+  mcp:
+    driver: bridge
