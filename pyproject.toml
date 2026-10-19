@@ -49,12 +49,25 @@ ignore = ["E203", "E501", "E701", "E401", "B008"]
 
 
 # =============================================================================
+# PYTEST
+# =============================================================================
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short"
+pythonpath = ["."]
+
+
+# =============================================================================
 # TOX — Test & task runner
 # =============================================================================
 
 # Default envs run when you type `tox` with no arguments
 [tool.tox]
 env_list = [
+  "test",
   "lint",
   "txt-lint",
   "format",
@@ -70,6 +83,18 @@ pass_env = ["PATH"]
 set_env = { VIRTUALENV_OVERRIDE_APP_DATA = "{work_dir}/.virtualenv", PRETTIER_GLOB = "**/*.{css,js,html,json,yml,yaml,md}" }
 
 # --- Linting ----------------------------------------------------------------
+
+[tool.tox.env.test]
+skip_install = true
+base_python = "python3"
+deps = [
+  "-r requirements.txt",
+  "pytest",
+  "pytest-asyncio",
+  "requests-mock",
+  "httpx",
+]
+commands = [["pytest", "tests"]]
 
 [tool.tox.env.lint]
 skip_install = true
@@ -226,6 +251,7 @@ commands = [
   #     "-e",
   #     "no-classes-check",
   #   ],
+  ["tox", "-e", "test"],
   ["tox", "-e", "lint"],
   ["tox", "-e", "txt-lint"],
   ["tox", "-e", "prettier"],

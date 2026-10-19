@@ -1,0 +1,8 @@
+node_modules
+package-lock.json
+
+# Agent plan workspace: ephemeral scratch (briefs, reports, review packages).
+# Never committed, so its formatting is not the repo's concern — and letting it
+# reach prettier makes the lint gate fail based on which scratch files happen
+# to exist at the time.
+.superpowers/

@@ -1,0 +1,9 @@
+.env
+.git
+.github
+.tox
+node_modules
+tests
+docs
+*.md
+__pycache__
