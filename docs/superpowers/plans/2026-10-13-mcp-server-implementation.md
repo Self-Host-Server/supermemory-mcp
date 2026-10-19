@@ -592,16 +592,11 @@ class SupermemoryClient:
         except requests.exceptions.RequestException as exc:
             # str(exc) can include the URL but never the Authorization header.
             logger.error("Supermemory backend unreachable at %s: %s", path, type(exc).__name__)
-            raise SupermemoryError(
-                f"Supermemory backend unreachable ({type(exc).__name__}). "
-                "Check SUPERMEMORY_API_URL and that the instance is running."
-            ) from exc
+            raise SupermemoryError(f"Supermemory backend unreachable ({type(exc).__name__}). Check SUPERMEMORY_API_URL and that the instance is running.") from exc
 
         if not response.ok:
             logger.error("Supermemory %s returned %s", path, response.status_code)
-            raise SupermemoryError(
-                f"Supermemory returned HTTP {response.status_code} for {path}."
-            )
+            raise SupermemoryError(f"Supermemory returned HTTP {response.status_code} for {path}.")
 
         try:
             return response.json()
