@@ -98,6 +98,42 @@ def test_search_returns_empty_string_when_no_results(client, requests_mock):
     assert client.search("nothing matches this") == ""
 
 
+def test_search_skips_results_with_null_memory(client, requests_mock):
+    """A forgotten/redacted result carries `memory: null` -- it must not crash the call.
+
+    `dict.get("memory", "")` returns None for a present-but-null key, so calling a
+    string method on it unguarded raises AttributeError. Remove the guard in
+    search() and this test fails.
+    """
+    requests_mock.post(
+        SEARCH_URL,
+        json={
+            "results": [
+                {"id": "a", "memory": None, "similarity": 0.9, "version": 1},
+                {"id": "b", "memory": "surviving memory", "similarity": 0.8, "version": 1},
+            ],
+            "timing": 51,
+            "total": 2,
+        },
+        status_code=200,
+    )
+
+    result = client.search("blue folder")
+
+    assert result == "surviving memory"
+
+
+def test_search_returns_empty_string_when_every_memory_is_null(client, requests_mock):
+    """All-null results degrade to the no-match answer rather than raising."""
+    requests_mock.post(
+        SEARCH_URL,
+        json={"results": [{"id": "a", "memory": None}], "timing": 40, "total": 1},
+        status_code=200,
+    )
+
+    assert client.search("blue folder") == ""
+
+
 def test_backend_http_error_raises_supermemory_error(client, requests_mock):
     """Review Focus 1: a backend 401 surfaces as a clear error, not a crash."""
     requests_mock.post(SEARCH_URL, json={"error": "Unauthorized"}, status_code=401)

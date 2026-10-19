@@ -56,8 +56,11 @@ class SupermemoryClient:
         payload = {"q": query, "containerTag": self._container_tag}
         data = self._post("/v4/search", payload)
         results = data.get("results", []) if isinstance(data, dict) else []
-        texts = [r["memory"].strip() for r in results if isinstance(r, dict) and r.get("memory", "").strip()]
-        return "\n\n".join(texts)
+        # `memory` can be null on a forgotten/redacted result (the backend has a
+        # forget state -- see forgetAfter/forgetReason in the add response), so
+        # coerce before calling string methods and drop the textless ones.
+        texts = [(r.get("memory") or "").strip() for r in results if isinstance(r, dict)]
+        return "\n\n".join(text for text in texts if text)
 
     def _post(self, path: str, payload: dict[str, Any]) -> Any:
         """POST and return parsed JSON, or raise SupermemoryError.
