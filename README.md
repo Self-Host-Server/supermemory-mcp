@@ -1,6 +1,8 @@
-# Self-Hosting-Template
+# Supermemory MCP Server
 
-A GitHub template repo for bootstrapping new self-hosting projects with linting, CI, and release automation already wired up.
+A self-hostable MCP bridge for a self-hosted [Supermemory](https://supermemory.ai) REST API instance (the official MCP endpoint is cloud-only). Exposes `addToSupermemory` / `searchSupermemory` over Streamable HTTP, gated by Authentik via `oauth2-proxy`. See [`docs/DEPLOY.md`](docs/DEPLOY.md) to deploy, and [`docs/superpowers/specs/2026-10-13-self-hosted-mcp-design.md`](docs/superpowers/specs/2026-10-13-self-hosted-mcp-design.md) for the design.
+
+This repo is built on a GitHub template for bootstrapping self-hosting projects with linting, CI, and release automation already wired up (documented below).
 
 ## What's included
 
