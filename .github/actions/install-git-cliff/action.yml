@@ -12,9 +12,14 @@ runs:
       run: |
         CLIFF_VER=$(curl -sf "https://api.github.com/repos/orhun/git-cliff/releases/latest" \
           | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'].lstrip('v'))")
+        # Extract into a dedicated empty dir, not /tmp directly: other processes
+        # on the runner (systemd, snap) own private subdirs under /tmp that this
+        # job can't read, so `find /tmp ...` hits "Permission denied" and, under
+        # `set -e -o pipefail`, exits 1 before `head -1` ever sees a match.
+        CLIFF_DIR=$(mktemp -d)
         curl -fsSL \
           "https://github.com/orhun/git-cliff/releases/download/v${CLIFF_VER}/git-cliff-${CLIFF_VER}-x86_64-unknown-linux-musl.tar.gz" \
-          | tar -xz -C /tmp
-        CLIFF=$(find /tmp -name "git-cliff" -type f | head -1)
+          | tar -xz -C "$CLIFF_DIR"
+        CLIFF=$(find "$CLIFF_DIR" -name "git-cliff" -type f | head -1)
         chmod +x "$CLIFF"
         echo "cliff-path=$CLIFF" >> "$GITHUB_OUTPUT"
