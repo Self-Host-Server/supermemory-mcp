@@ -1,6 +1,12 @@
 node_modules
 package-lock.json
 
+# pytest cache artifact: created by running the test suite, not authored
+# content. Running `tox -e github`'s test step before the prettier step
+# creates this directory, so without the ignore, prettier fails on a file
+# no one wrote (same class of gate non-determinism as .superpowers/ below).
+.pytest_cache/
+
 # Agent plan workspace: ephemeral scratch (briefs, reports, review packages).
 # Never committed, so its formatting is not the repo's concern — and letting it
 # reach prettier makes the lint gate fail based on which scratch files happen
