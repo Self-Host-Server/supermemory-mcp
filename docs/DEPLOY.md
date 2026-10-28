@@ -28,6 +28,7 @@ Fill in:
 | `AUTHENTIK_CLIENT_ID` / `AUTHENTIK_CLIENT_SECRET` | yes      | From the Authentik OAuth2 provider you create for this app                                                                          |
 | `OAUTH2_PROXY_COOKIE_SECRET`                      | yes      | `openssl rand -hex 16`                                                                                                              |
 | `OAUTH2_PROXY_REDIRECT_URL`                       | no       | Defaults to `http://localhost:4180/oauth2/callback`; set to your real public URL in production                                      |
+| `MCP_PUBLIC_URL`                                  | no       | Public https URL of the proxy, no `/mcp`. Enables OAuth discovery for claude.ai connectors                                          |
 | `MCP_PUBLIC_PORT`                                 | no       | Defaults to `4180`                                                                                                                  |
 
 In Authentik, the OIDC issuer is expected at `${AUTHENTIK_HOST}/application/o/supermemory-mcp/` — name your Authentik application slug `supermemory-mcp`, or edit `compose.yml`'s `OAUTH2_PROXY_OIDC_ISSUER_URL` to match whatever slug you used.
@@ -53,29 +54,27 @@ Hitting `/mcp` directly without logging in should redirect to Authentik (or retu
 
 ## 3. Connect an MCP client
 
-Once logged in through the proxy (a browser session establishes the oauth2-proxy cookie), point your client at:
+### claude.ai and Claude Desktop (custom connector)
 
-```
-http://<your-host>:4180/mcp
-```
+Requires `MCP_PUBLIC_URL` set to the public **https** URL of the proxy (e.g. `https://mcp.example.com`), reachable from the internet.
 
-Claude Code:
+1. In the Authentik provider, add redirect URI `https://claude.ai/api/mcp/auth_callback` (Strict), next to the oauth2-proxy one.
+2. In claude.ai, open **Settings → Connectors → Add custom connector**.
+3. URL: `https://<your-host>/mcp`. Under **Advanced settings**, enter `AUTHENTIK_CLIENT_ID` and `AUTHENTIK_CLIENT_SECRET`.
+4. Click **Connect** and log in through Authentik.
+
+The server publishes `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`, pointing claude.ai at Authentik's endpoints. oauth2-proxy then accepts the Authentik access token as a Bearer header.
+
+### Claude Code
+
+Claude Code can't use the browser login, so pass the oauth2-proxy cookie as a header. Log in at `https://<your-host>/` in a browser, copy the `_oauth2_proxy` cookie from DevTools, then:
 
 ```bash
-claude mcp add --transport http supermemory http://<your-host>:4180/mcp
+claude mcp add --transport http supermemory https://<your-host>/mcp \
+  --header "Cookie: _oauth2_proxy=<cookie value>"
 ```
 
-Claude Desktop (`claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "supermemory": {
-      "url": "http://<your-host>:4180/mcp"
-    }
-  }
-}
-```
+The cookie expires after 7 days (oauth2-proxy default); repeat the steps when tool calls start returning 401.
 
 Tools exposed: `addToSupermemory` (`{thingToRemember}`), `searchSupermemory` (`{informationToGet}`). Prompt exposed: `Supermemory Prompt`.
 
