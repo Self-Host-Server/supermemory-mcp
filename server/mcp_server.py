@@ -20,8 +20,15 @@ PROMPT_TEXT = (
 )
 
 
-def build_server(client: SupermemoryClient) -> MCPServer:
-    """Build the MCP server, wiring both tools to `client`."""
+OAUTH_SCOPES = ["openid", "email", "profile", "offline_access"]
+
+
+def build_server(client: SupermemoryClient, public_url: str = "", authentik_host: str = "") -> MCPServer:
+    """Build the MCP server, wiring both tools to `client`.
+
+    With `public_url` and `authentik_host` set, also serve OAuth discovery
+    metadata (RFC 9728 + RFC 8414) pointing MCP clients at Authentik.
+    """
     server = MCPServer(
         name="supermemory",
         instructions="Read and write long-term memories in a self-hosted Supermemory instance.",
@@ -57,5 +64,35 @@ def build_server(client: SupermemoryClient) -> MCPServer:
     async def health(request: Request) -> JSONResponse:
         """Liveness only. Deliberately reveals nothing -- custom routes skip auth."""
         return JSONResponse({"ok": True})
+
+    if public_url and authentik_host:
+        resource_metadata = {
+            "resource": f"{public_url}/mcp",
+            # This server, not Authentik: Authentik serves no RFC 8414 document,
+            # so the one below re-publishes its endpoints.
+            "authorization_servers": [public_url],
+            "scopes_supported": OAUTH_SCOPES,
+            "bearer_methods_supported": ["header"],
+        }
+        server_metadata = {
+            "issuer": public_url,
+            "authorization_endpoint": f"{authentik_host}/application/o/authorize/",
+            "token_endpoint": f"{authentik_host}/application/o/token/",
+            "scopes_supported": OAUTH_SCOPES,
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "code_challenge_methods_supported": ["S256"],
+            "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic"],
+        }
+
+        # Clients try the path-suffixed form first, then the root.
+        @server.custom_route("/.well-known/oauth-protected-resource", methods=["GET"])
+        @server.custom_route("/.well-known/oauth-protected-resource/mcp", methods=["GET"])
+        async def protected_resource(request: Request) -> JSONResponse:
+            return JSONResponse(resource_metadata)
+
+        @server.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
+        async def authorization_server(request: Request) -> JSONResponse:
+            return JSONResponse(server_metadata)
 
     return server
