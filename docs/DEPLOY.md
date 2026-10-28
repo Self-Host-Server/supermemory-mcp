@@ -26,7 +26,7 @@ Fill in:
 | `SUPERMEMORY_CONTAINER_TAG`                       | no       | Namespace for memories. Leave unset only if you don't need to resume a prior namespace — a new one is generated per start otherwise |
 | `AUTHENTIK_HOST`                                  | yes      | e.g. `https://authentik.example.com`                                                                                                |
 | `AUTHENTIK_CLIENT_ID` / `AUTHENTIK_CLIENT_SECRET` | yes      | From the Authentik OAuth2 provider you create for this app                                                                          |
-| `OAUTH2_PROXY_COOKIE_SECRET`                      | yes      | `openssl rand -base64 32`                                                                                                           |
+| `OAUTH2_PROXY_COOKIE_SECRET`                      | yes      | `openssl rand -hex 16`                                                                                                              |
 | `OAUTH2_PROXY_REDIRECT_URL`                       | no       | Defaults to `http://localhost:4180/oauth2/callback`; set to your real public URL in production                                      |
 | `MCP_PUBLIC_PORT`                                 | no       | Defaults to `4180`                                                                                                                  |
 
