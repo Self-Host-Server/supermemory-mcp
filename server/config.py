@@ -22,8 +22,11 @@ class Settings(BaseSettings):
     supermemory_api_url: str
     supermemory_api_key: str
     supermemory_container_tag: str = ""
+    # Both set -> serve OAuth discovery metadata so claude.ai can log in via Authentik.
+    mcp_public_url: str = ""
+    authentik_host: str = ""
 
-    @field_validator("supermemory_api_url")
+    @field_validator("supermemory_api_url", "mcp_public_url", "authentik_host")
     @classmethod
     def _strip_trailing_slash(cls, value: str) -> str:
         return value.rstrip("/")

@@ -47,7 +47,7 @@ def create_app() -> Starlette:
     """Build the ASGI app: MCP at /mcp, health at /health, auth gate in front."""
     settings = get_settings()  # raises here, at startup, if a var is missing
     client = SupermemoryClient(settings)
-    server = build_server(client)
+    server = build_server(client, settings.mcp_public_url, settings.authentik_host)
 
     app = server.streamable_http_app()
     app.add_middleware(ForwardedUserRequired)

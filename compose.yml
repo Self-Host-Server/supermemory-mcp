@@ -7,6 +7,9 @@ services:
       SUPERMEMORY_API_KEY: ${SUPERMEMORY_API_KEY:?set SUPERMEMORY_API_KEY in .env}
       SUPERMEMORY_CONTAINER_TAG: ${SUPERMEMORY_CONTAINER_TAG:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Set MCP_PUBLIC_URL to enable OAuth discovery for claude.ai connectors.
+      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-}
+      AUTHENTIK_HOST: ${AUTHENTIK_HOST:?set AUTHENTIK_HOST in .env}
     # No ports: -- only the proxy may reach it. Publishing 5555 would expose
     # the MCP endpoint with nothing in front but the forwarded-user check.
     networks: [mcp]
@@ -49,8 +52,12 @@ services:
       # Sends X-Forwarded-User upstream -- the header server/main.py requires.
       OAUTH2_PROXY_PASS_BASIC_AUTH: "true"
       OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
-      # Let Docker's healthcheck through without a login round-trip.
-      OAUTH2_PROXY_SKIP_AUTH_ROUTES: ^/health$$
+      # Let Docker's healthcheck and OAuth discovery through without a login.
+      OAUTH2_PROXY_SKIP_AUTH_ROUTES: '^/(health|\.well-known/oauth-.*)$$'
+      # MCP clients (claude.ai) send Authentik access tokens as Bearer headers.
+      OAUTH2_PROXY_SKIP_JWT_BEARER_TOKENS: "true"
+      # 401 instead of a login redirect, so MCP clients start their OAuth flow.
+      OAUTH2_PROXY_API_ROUTES: ^/mcp
     ports:
       - "${MCP_PUBLIC_PORT:-4180}:4180"
     networks: [mcp]
