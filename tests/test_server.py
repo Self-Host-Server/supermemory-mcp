@@ -107,6 +107,9 @@ def app_client(monkeypatch):
     monkeypatch.setenv("SUPERMEMORY_API_URL", "http://backend:6767")
     monkeypatch.setenv("SUPERMEMORY_API_KEY", "sm_key")
     monkeypatch.setenv("SUPERMEMORY_CONTAINER_TAG", "test_tag")
+    # Empty env beats a developer's .env, keeping OAuth metadata off by default.
+    monkeypatch.setenv("MCP_PUBLIC_URL", "")
+    monkeypatch.setenv("AUTHENTIK_HOST", "")
     # Context-manager form: streamable_http_app()'s session manager needs the
     # ASGI lifespan to run (it initializes an anyio task group in `run()`),
     # which TestClient only sends when entered via `with`/`__enter__`.
@@ -137,3 +140,23 @@ def test_mcp_endpoint_accepts_request_with_forwarded_user(app_client):
     )
 
     assert response.status_code != 401
+
+
+def test_oauth_metadata_absent_when_not_configured(app_client):
+    assert app_client.get("/.well-known/oauth-protected-resource").status_code == 404
+
+
+def test_oauth_metadata_points_clients_at_authentik(monkeypatch):
+    monkeypatch.setenv("MCP_PUBLIC_URL", "https://mcp.example.com/")
+    monkeypatch.setenv("AUTHENTIK_HOST", "https://auth.example.com")
+    with TestClient(create_app()) as client:
+        for path in ("/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"):
+            resource = client.get(path).json()
+            assert resource["resource"] == "https://mcp.example.com/mcp"
+            assert resource["authorization_servers"] == ["https://mcp.example.com"]
+
+        server = client.get("/.well-known/oauth-authorization-server").json()
+
+    assert server["issuer"] == "https://mcp.example.com"
+    assert server["authorization_endpoint"] == "https://auth.example.com/application/o/authorize/"
+    assert server["token_endpoint"] == "https://auth.example.com/application/o/token/"
