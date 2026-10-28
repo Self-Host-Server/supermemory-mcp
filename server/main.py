@@ -8,6 +8,7 @@ and PROTECTED_PREFIXES below must then cover both.
 import logging
 import os
 
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -49,7 +50,10 @@ def create_app() -> Starlette:
     client = SupermemoryClient(settings)
     server = build_server(client, settings.mcp_public_url, settings.authentik_host)
 
-    app = server.streamable_http_app()
+    # The SDK's default Host check only allows localhost, which 421s every
+    # proxied request. Rebinding protection guards localhost-bound servers;
+    # this one is reachable only through oauth2-proxy + the gate below.
+    app = server.streamable_http_app(transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
     app.add_middleware(ForwardedUserRequired)
     logger.info("MCP server ready (containerTag=%s)", settings.supermemory_container_tag)
     return app
