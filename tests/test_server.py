@@ -133,13 +133,25 @@ def test_mcp_endpoint_rejects_request_without_forwarded_user(app_client):
 
 def test_mcp_endpoint_accepts_request_with_forwarded_user(app_client):
     """The gate lets a proxied request through -- it is not rejecting everything."""
+    initialize = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "0"}},
+    }
     response = app_client.post(
         "/mcp",
-        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
-        headers={"X-Forwarded-User": "alice"},
+        json=initialize,
+        # A public Host, as the proxy forwards it.
+        headers={
+            "X-Forwarded-User": "alice",
+            "Host": "mcp.example.com",
+            "Accept": "application/json, text/event-stream",
+        },
     )
 
-    assert response.status_code != 401
+    # Exact 200: a 421 from the SDK Host check would also pass "!= 401".
+    assert response.status_code == 200
 
 
 def test_oauth_metadata_absent_when_not_configured(app_client):
