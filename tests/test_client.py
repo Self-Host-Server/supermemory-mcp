@@ -15,6 +15,7 @@ from server.config import Settings
 API_KEY = "sm_secret_key_do_not_log"
 MEMORIES_URL = "http://backend:6767/v4/memories"
 SEARCH_URL = "http://backend:6767/v4/search"
+MEMORY_ID = "mem_abc123"
 
 
 @pytest.fixture
@@ -162,6 +163,26 @@ def test_non_json_body_raises_supermemory_error(client, requests_mock):
         client.search("anything")
 
     assert "non-json" in str(exc.value).lower()
+
+
+def test_delete_sends_delete_request_with_memory_id(client, requests_mock):
+    """Contract: DELETE /v4/memories/{id} with 200 response confirms deletion."""
+    requests_mock.delete(f"{MEMORIES_URL}/{MEMORY_ID}", status_code=200)
+
+    result = client.delete(MEMORY_ID)
+
+    assert MEMORY_ID in result
+    assert requests_mock.last_request.method == "DELETE"
+
+
+def test_delete_raises_error_on_404(client, requests_mock):
+    """A 404 when deleting a non-existent memory surfaces as an error."""
+    requests_mock.delete(f"{MEMORIES_URL}/nonexistent", json={"error": "Not Found"}, status_code=404)
+
+    with pytest.raises(SupermemoryError) as exc:
+        client.delete("nonexistent")
+
+    assert "404" in str(exc.value)
 
 
 def test_api_key_absent_from_logs_and_errors(client, requests_mock, caplog):
