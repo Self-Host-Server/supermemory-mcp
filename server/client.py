@@ -62,18 +62,34 @@ class SupermemoryClient:
         texts = [(r.get("memory") or "").strip() for r in results if isinstance(r, dict)]
         return "\n\n".join(text for text in texts if text)
 
-    def _post(self, path: str, payload: dict[str, Any]) -> Any:
-        """POST and return parsed JSON, or raise SupermemoryError.
+    def delete(self, memory_id: str) -> str:
+        """Delete a memory by ID. Returns a confirmation message."""
+        self._request("delete", f"/v4/memories/{memory_id}")
+        return f"Deleted memory {memory_id}."
+
+    def modify(self, memory_id: str, new_content: str) -> str:
+        """Update a memory's content by ID. Returns a confirmation message."""
+        self._request("patch", f"/v4/memories/{memory_id}", {"content": new_content})
+        return f"Updated memory {memory_id}."
+
+    def _request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
+        """Make HTTP request and return parsed JSON, or raise SupermemoryError.
 
         Logs the path and container tag only -- never the session headers,
         which hold the bearer token.
         """
         url = f"{self._base_url}{path}"
-        logger.info("POST %s (containerTag=%s)", path, self._container_tag)
+        logger.info("%s %s (containerTag=%s)", method.upper(), path, self._container_tag)
         try:
-            response = self._session.post(url, json=payload, timeout=TIMEOUT_SECONDS)
+            if method.lower() == "post":
+                response = self._session.post(url, json=payload, timeout=TIMEOUT_SECONDS)
+            elif method.lower() == "patch":
+                response = self._session.patch(url, json=payload, timeout=TIMEOUT_SECONDS)
+            elif method.lower() == "delete":
+                response = self._session.delete(url, timeout=TIMEOUT_SECONDS)
+            else:
+                raise ValueError(f"Unsupported HTTP method: {method}")
         except requests.exceptions.RequestException as exc:
-            # str(exc) can include the URL but never the Authorization header.
             logger.error("Supermemory backend unreachable at %s: %s", path, type(exc).__name__)
             raise SupermemoryError(f"Supermemory backend unreachable ({type(exc).__name__}). Check SUPERMEMORY_API_URL and that the instance is running.") from exc
 
@@ -82,7 +98,11 @@ class SupermemoryClient:
             raise SupermemoryError(f"Supermemory returned HTTP {response.status_code} for {path}.")
 
         try:
-            return response.json()
+            return response.json() if response.content else {}
         except ValueError as exc:
             logger.error("Supermemory %s returned non-JSON body", path)
             raise SupermemoryError(f"Supermemory returned a non-JSON response for {path}.") from exc
+
+    def _post(self, path: str, payload: dict[str, Any]) -> Any:
+        """POST and return parsed JSON, or raise SupermemoryError."""
+        return self._request("post", path, payload)
