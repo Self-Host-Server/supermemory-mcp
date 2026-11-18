@@ -62,6 +62,22 @@ class SupermemoryClient:
         texts = [(r.get("memory") or "").strip() for r in results if isinstance(r, dict)]
         return "\n\n".join(text for text in texts if text)
 
+    def delete(self, memory_id: str) -> str:
+        """Delete a memory by ID. Returns a confirmation message."""
+        url = f"{self._base_url}/v4/memories/{memory_id}"
+        logger.info("DELETE /v4/memories/%s (containerTag=%s)", memory_id, self._container_tag)
+        try:
+            response = self._session.delete(url, timeout=TIMEOUT_SECONDS)
+        except requests.exceptions.RequestException as exc:
+            logger.error("Supermemory backend unreachable at /v4/memories/%s: %s", memory_id, type(exc).__name__)
+            raise SupermemoryError(f"Supermemory backend unreachable ({type(exc).__name__}). Check SUPERMEMORY_API_URL and that the instance is running.") from exc
+
+        if not response.ok:
+            logger.error("Supermemory /v4/memories/%s returned %s", memory_id, response.status_code)
+            raise SupermemoryError(f"Supermemory returned HTTP {response.status_code} when deleting memory {memory_id}.")
+
+        return f"Deleted memory {memory_id}."
+
     def _post(self, path: str, payload: dict[str, Any]) -> Any:
         """POST and return parsed JSON, or raise SupermemoryError.
 
