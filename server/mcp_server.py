@@ -86,14 +86,13 @@ def build_server(client: SupermemoryClient, public_url: str = "", authentik_host
     if public_url and authentik_host:
         resource_metadata = {
             "resource": f"{public_url}/mcp",
-            # This server, not Authentik: Authentik serves no RFC 8414 document,
-            # so the one below re-publishes its endpoints.
-            "authorization_servers": [public_url],
+            # Authorization servers point to Authentik, not this server.
+            "authorization_servers": [authentik_host],
             "scopes_supported": OAUTH_SCOPES,
             "bearer_methods_supported": ["header"],
         }
         server_metadata = {
-            "issuer": public_url,
+            "issuer": authentik_host,
             "authorization_endpoint": f"{authentik_host}/application/o/authorize/",
             "token_endpoint": f"{authentik_host}/application/o/token/",
             "scopes_supported": OAUTH_SCOPES,
