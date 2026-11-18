@@ -13,10 +13,12 @@ from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.routing import Route
 
 from server.client import SupermemoryClient
 from server.config import get_settings
 from server.mcp_server import build_server
+from server.providers.openai import OpenAIProvider
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
@@ -24,21 +26,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Paths the proxy must have authenticated. /health is deliberately absent.
-PROTECTED_PREFIXES = ("/mcp", "/messages", "/sse")
+# Paths the proxy must have authenticated. /health and /api/providers/*/tools are deliberately absent.
+PROTECTED_PREFIXES = ("/mcp", "/messages", "/sse", "/api/providers/*/call")
 
 
 class ForwardedUserRequired(BaseHTTPMiddleware):
-    """Reject MCP traffic that did not come through the OAuth2 proxy.
+    """Reject traffic that did not come through the OAuth2 proxy.
 
     The proxy sets X-Forwarded-User after a successful login. A request
-    without it reached this container directly, so refuse it before any
-    tool runs.
+    without it to a protected path reached this container directly, so refuse it.
     """
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        if path.startswith(PROTECTED_PREFIXES) and not request.headers.get("X-Forwarded-User"):
+        is_protected = (
+            path.startswith(PROTECTED_PREFIXES)
+            or path.startswith("/api/providers/") and path.endswith("/call")
+        )
+        if is_protected and not request.headers.get("X-Forwarded-User"):
             logger.warning("Rejected unauthenticated %s %s", request.method, path)
             return JSONResponse({"error": "Unauthorized"}, status_code=401)
         return await call_next(request)
@@ -54,6 +59,36 @@ def create_app() -> Starlette:
     # proxied request. Rebinding protection guards localhost-bound servers;
     # this one is reachable only through oauth2-proxy + the gate below.
     app = server.streamable_http_app(transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
+
+    # Add OpenAI provider endpoints
+    openai_provider = OpenAIProvider(client)
+
+    async def openai_tools(request: Request) -> JSONResponse:
+        """Return tools in OpenAI Function Calling format. No auth required (like /health)."""
+        schema = openai_provider.get_tools_schema()
+        response = JSONResponse(schema)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
+
+    async def openai_call(request: Request) -> JSONResponse:
+        """Execute an OpenAI function call. Requires X-Forwarded-User header."""
+        try:
+            body = await request.json()
+            function_name = body.get("function_name")
+            arguments = body.get("arguments", {})
+
+            if not function_name:
+                return JSONResponse({"error": "Missing function_name"}, status_code=400)
+
+            result = await openai_provider.call_function(function_name, arguments)
+            return JSONResponse({"result": result, "error": None})
+        except Exception as exc:
+            logger.error("OpenAI call failed: %s", exc)
+            return JSONResponse({"result": None, "error": str(exc)}, status_code=500)
+
+    app.routes.append(Route("/api/providers/openai/tools", openai_tools, methods=["GET"]))
+    app.routes.append(Route("/api/providers/openai/call", openai_call, methods=["POST"]))
+
     app.add_middleware(ForwardedUserRequired)
     logger.info("MCP server ready (containerTag=%s)", settings.supermemory_container_tag)
     return app
