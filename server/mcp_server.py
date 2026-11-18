@@ -1,4 +1,4 @@
-"""MCP server: three tools, one prompt, one health route."""
+"""MCP server: four tools, one prompt, one health route."""
 
 import logging
 
@@ -63,6 +63,15 @@ def build_server(client: SupermemoryClient, public_url: str = "", authentik_host
         except SupermemoryError as exc:
             logger.error("deleteMemory failed: %s", exc)
             return f"Could not delete the memory. {exc}"
+
+    @server.tool()
+    def modifyMemory(memoryId: str, newContent: str) -> str:  # noqa: N802 - public MCP tool name
+        """Update the content of an existing memory by its ID."""
+        try:
+            return client.modify(memoryId, newContent)
+        except SupermemoryError as exc:
+            logger.error("modifyMemory failed: %s", exc)
+            return f"Could not update the memory. {exc}"
 
     @server.prompt()
     def supermemory_prompt() -> str:
