@@ -103,13 +103,27 @@ def build_server(client: SupermemoryClient, public_url: str = "", authentik_host
         }
 
         # Clients try the path-suffixed form first, then the root.
-        @server.custom_route("/.well-known/oauth-protected-resource", methods=["GET"])
-        @server.custom_route("/.well-known/oauth-protected-resource/mcp", methods=["GET"])
+        @server.custom_route("/.well-known/oauth-protected-resource", methods=["GET", "OPTIONS"])
+        @server.custom_route("/.well-known/oauth-protected-resource/mcp", methods=["GET", "OPTIONS"])
         async def protected_resource(request: Request) -> JSONResponse:
-            return JSONResponse(resource_metadata)
+            if request.method == "OPTIONS":
+                response = JSONResponse({})
+            else:
+                response = JSONResponse(resource_metadata)
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
 
-        @server.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
+        @server.custom_route("/.well-known/oauth-authorization-server", methods=["GET", "OPTIONS"])
         async def authorization_server(request: Request) -> JSONResponse:
-            return JSONResponse(server_metadata)
+            if request.method == "OPTIONS":
+                response = JSONResponse({})
+            else:
+                response = JSONResponse(server_metadata)
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
 
     return server
