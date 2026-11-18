@@ -16,6 +16,7 @@ API_KEY = "sm_secret_key_do_not_log"
 MEMORIES_URL = "http://backend:6767/v4/memories"
 SEARCH_URL = "http://backend:6767/v4/search"
 MEMORY_ID = "mem_abc123"
+MODIFY_URL = f"{MEMORIES_URL}/{MEMORY_ID}"
 
 
 @pytest.fixture
@@ -181,6 +182,28 @@ def test_delete_raises_error_on_404(client, requests_mock):
 
     with pytest.raises(SupermemoryError) as exc:
         client.delete("nonexistent")
+
+    assert "404" in str(exc.value)
+
+
+def test_modify_sends_patch_request_with_content(client, requests_mock):
+    """Contract: PATCH /v4/memories/{id} with content in payload and 200 response."""
+    requests_mock.patch(MODIFY_URL, status_code=200)
+
+    result = client.modify(MEMORY_ID, "updated content here")
+
+    assert MEMORY_ID in result
+    sent = requests_mock.last_request.json()
+    assert sent["content"] == "updated content here"
+    assert requests_mock.last_request.method == "PATCH"
+
+
+def test_modify_raises_error_on_404(client, requests_mock):
+    """A 404 when modifying a non-existent memory surfaces as an error."""
+    requests_mock.patch(f"{MEMORIES_URL}/nonexistent", json={"error": "Not Found"}, status_code=404)
+
+    with pytest.raises(SupermemoryError) as exc:
+        client.modify("nonexistent", "new content")
 
     assert "404" in str(exc.value)
 
