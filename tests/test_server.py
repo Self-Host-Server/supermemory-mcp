@@ -225,10 +225,10 @@ def test_oauth_metadata_points_clients_at_authentik(monkeypatch):
         for path in ("/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"):
             resource = client.get(path).json()
             assert resource["resource"] == "https://mcp.example.com/mcp"
-            assert resource["authorization_servers"] == ["https://mcp.example.com"]
+            assert resource["authorization_servers"] == ["https://auth.example.com"]
 
         server = client.get("/.well-known/oauth-authorization-server").json()
 
-    assert server["issuer"] == "https://mcp.example.com"
+    assert server["issuer"] == "https://auth.example.com"
     assert server["authorization_endpoint"] == "https://auth.example.com/application/o/authorize/"
     assert server["token_endpoint"] == "https://auth.example.com/application/o/token/"
