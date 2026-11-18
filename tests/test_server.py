@@ -11,12 +11,14 @@ from server.mcp_server import build_server
 class FakeClient:
     """Stands in for SupermemoryClient; records calls, raises on demand."""
 
-    def __init__(self, add_result="Stored memory mem_1.", search_result="a memory", raise_on=None):
+    def __init__(self, add_result="Stored memory mem_1.", search_result="a memory", delete_result="Deleted memory mem_1.", raise_on=None):
         self.add_result = add_result
         self.search_result = search_result
+        self.delete_result = delete_result
         self.raise_on = raise_on
         self.added = []
         self.searched = []
+        self.deleted = []
 
     def add(self, text):
         self.added.append(text)
@@ -29,6 +31,12 @@ class FakeClient:
         if self.raise_on == "search":
             raise SupermemoryError("Supermemory returned HTTP 500 for /v4/search.")
         return self.search_result
+
+    def delete(self, memory_id):
+        self.deleted.append(memory_id)
+        if self.raise_on == "delete":
+            raise SupermemoryError("Supermemory returned HTTP 404 when deleting memory mem_1.")
+        return self.delete_result
 
 
 async def call_tool(server, name, arguments):
@@ -93,6 +101,27 @@ async def test_search_tool_reports_backend_failure():
 
 
 @pytest.mark.asyncio
+async def test_delete_tool_forwards_memory_id_to_client():
+    client = FakeClient(delete_result="Deleted memory mem_abc123.")
+    server = build_server(client)
+
+    output = await call_tool(server, "deleteMemory", {"memoryId": "mem_abc123"})
+
+    assert client.deleted == ["mem_abc123"]
+    assert "mem_abc123" in output
+
+
+@pytest.mark.asyncio
+async def test_delete_tool_reports_backend_failure():
+    client = FakeClient(raise_on="delete")
+    server = build_server(client)
+
+    output = await call_tool(server, "deleteMemory", {"memoryId": "mem_1"})
+
+    assert "404" in output
+
+
+@pytest.mark.asyncio
 async def test_tools_are_registered_under_official_names():
     server = build_server(FakeClient())
 
@@ -100,6 +129,7 @@ async def test_tools_are_registered_under_official_names():
 
     assert "addToSupermemory" in names
     assert "searchSupermemory" in names
+    assert "deleteMemory" in names
 
 
 @pytest.fixture
