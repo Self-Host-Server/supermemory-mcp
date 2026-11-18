@@ -11,14 +11,16 @@ from server.mcp_server import build_server
 class FakeClient:
     """Stands in for SupermemoryClient; records calls, raises on demand."""
 
-    def __init__(self, add_result="Stored memory mem_1.", search_result="a memory", delete_result="Deleted memory mem_1.", raise_on=None):
+    def __init__(self, add_result="Stored memory mem_1.", search_result="a memory", delete_result="Deleted memory mem_1.", modify_result="Updated memory mem_1.", raise_on=None):
         self.add_result = add_result
         self.search_result = search_result
         self.delete_result = delete_result
+        self.modify_result = modify_result
         self.raise_on = raise_on
         self.added = []
         self.searched = []
         self.deleted = []
+        self.modified = []
 
     def add(self, text):
         self.added.append(text)
@@ -37,6 +39,12 @@ class FakeClient:
         if self.raise_on == "delete":
             raise SupermemoryError("Supermemory returned HTTP 404 when deleting memory mem_1.")
         return self.delete_result
+
+    def modify(self, memory_id, new_content):
+        self.modified.append((memory_id, new_content))
+        if self.raise_on == "modify":
+            raise SupermemoryError("Supermemory returned HTTP 404 when updating memory mem_1.")
+        return self.modify_result
 
 
 async def call_tool(server, name, arguments):
@@ -122,6 +130,27 @@ async def test_delete_tool_reports_backend_failure():
 
 
 @pytest.mark.asyncio
+async def test_modify_tool_forwards_id_and_content_to_client():
+    client = FakeClient(modify_result="Updated memory mem_abc123.")
+    server = build_server(client)
+
+    output = await call_tool(server, "modifyMemory", {"memoryId": "mem_abc123", "newContent": "new text here"})
+
+    assert client.modified == [("mem_abc123", "new text here")]
+    assert "mem_abc123" in output
+
+
+@pytest.mark.asyncio
+async def test_modify_tool_reports_backend_failure():
+    client = FakeClient(raise_on="modify")
+    server = build_server(client)
+
+    output = await call_tool(server, "modifyMemory", {"memoryId": "mem_1", "newContent": "x"})
+
+    assert "404" in output
+
+
+@pytest.mark.asyncio
 async def test_tools_are_registered_under_official_names():
     server = build_server(FakeClient())
 
@@ -130,6 +159,7 @@ async def test_tools_are_registered_under_official_names():
     assert "addToSupermemory" in names
     assert "searchSupermemory" in names
     assert "deleteMemory" in names
+    assert "modifyMemory" in names
 
 
 @pytest.fixture
