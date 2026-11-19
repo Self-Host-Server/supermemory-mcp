@@ -40,10 +40,7 @@ class ForwardedUserRequired(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        is_protected = (
-            path.startswith(PROTECTED_PREFIXES)
-            or path.startswith("/api/providers/") and path.endswith("/call")
-        )
+        is_protected = path.startswith(PROTECTED_PREFIXES) or path.startswith("/api/providers/") and path.endswith("/call")
         if is_protected and not request.headers.get("X-Forwarded-User"):
             logger.warning("Rejected unauthenticated %s %s", request.method, path)
             return JSONResponse({"error": "Unauthorized"}, status_code=401)
