@@ -56,8 +56,6 @@ services:
       OAUTH2_PROXY_SKIP_AUTH_ROUTES: '^/(health|\.well-known/oauth-.*)$$'
       # MCP clients (claude.ai) send Authentik access tokens as Bearer headers.
       OAUTH2_PROXY_SKIP_JWT_BEARER_TOKENS: "true"
-      # 401 instead of a login redirect, so MCP clients start their OAuth flow.
-      OAUTH2_PROXY_API_ROUTES: ^/mcp
     ports:
       - "${MCP_PUBLIC_PORT:-4180}:4180"
     networks: [mcp]
