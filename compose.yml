@@ -43,7 +43,7 @@ services:
       # Browsers drop Secure cookies over plain http (except localhost); set false only for LAN http.
       OAUTH2_PROXY_COOKIE_SECURE: ${OAUTH2_PROXY_COOKIE_SECURE:-true}
       OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
-      OAUTH2_PROXY_UPSTREAMS: http://mcp-server:5555
+      OAUTH2_PROXY_UPSTREAMS: http://mcp-server:5555/mcp
       OAUTH2_PROXY_EMAIL_DOMAINS: "*"
       # Authentik sends email_verified=false by default. Safe with "*" above:
       # access is decided by Authentik's app bindings, not by the email.
