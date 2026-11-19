@@ -43,7 +43,7 @@ services:
       # Browsers drop Secure cookies over plain http (except localhost); set false only for LAN http.
       OAUTH2_PROXY_COOKIE_SECURE: ${OAUTH2_PROXY_COOKIE_SECURE:-true}
       OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
-      OAUTH2_PROXY_UPSTREAMS: http://mcp-server:5555/mcp
+      OAUTH2_PROXY_UPSTREAMS: http://mcp-server:5555
       OAUTH2_PROXY_EMAIL_DOMAINS: "*"
       # Authentik sends email_verified=false by default. Safe with "*" above:
       # access is decided by Authentik's app bindings, not by the email.
@@ -56,6 +56,8 @@ services:
       OAUTH2_PROXY_SKIP_AUTH_ROUTES: '^/(health|\.well-known/oauth-.*)$$'
       # MCP clients (claude.ai) send Authentik access tokens as Bearer headers.
       OAUTH2_PROXY_SKIP_JWT_BEARER_TOKENS: "true"
+      # 401 instead of a login redirect, so MCP clients start their OAuth flow.
+      OAUTH2_PROXY_API_ROUTES: ^/mcp
     ports:
       - "${MCP_PUBLIC_PORT:-4180}:4180"
     networks: [mcp]
