@@ -5,7 +5,8 @@ from starlette.testclient import TestClient
 
 from server.client import SupermemoryError
 from server.main import create_app
-from server.providers.openai import OpenAIProvider
+from server.providers import base as provider_base
+from server.providers import openai as openai_provider
 
 
 class FakeClient:
@@ -46,13 +47,9 @@ class FakeClient:
         return self.results["modify"]
 
 
-@pytest.mark.asyncio
-async def test_openai_provider_returns_function_schema():
+def test_openai_provider_returns_function_schema():
     """OpenAI provider exports tools in Function Calling format."""
-    client = FakeClient()
-    provider = OpenAIProvider(client)
-
-    schema = provider.get_tools_schema()
+    schema = openai_provider.get_tools_schema()
 
     assert "tools" in schema
     assert len(schema["tools"]) == 4
@@ -66,82 +63,75 @@ async def test_openai_provider_returns_function_schema():
 
 
 @pytest.mark.asyncio
-async def test_openai_provider_call_add():
+async def test_provider_call_add():
     """Calling add_to_memory maps to client.add()."""
     client = FakeClient()
-    provider = OpenAIProvider(client)
 
-    result = await provider.call_function("add_to_memory", {"content": "test fact"})
+    result = await provider_base.call_function(client, "add_to_memory", {"content": "test fact"})
 
     assert client.calls == [("add", "test fact")]
     assert "mem_123" in result
 
 
 @pytest.mark.asyncio
-async def test_openai_provider_call_search():
+async def test_provider_call_search():
     """Calling search_memory maps to client.search()."""
     client = FakeClient()
-    provider = OpenAIProvider(client)
 
-    result = await provider.call_function("search_memory", {"query": "what is X"})
+    result = await provider_base.call_function(client, "search_memory", {"query": "what is X"})
 
     assert client.calls == [("search", "what is X")]
     assert "Found memory" in result
 
 
 @pytest.mark.asyncio
-async def test_openai_provider_call_delete():
+async def test_provider_call_delete():
     """Calling delete_memory maps to client.delete()."""
     client = FakeClient()
-    provider = OpenAIProvider(client)
 
-    result = await provider.call_function("delete_memory", {"memory_id": "mem_123"})
+    result = await provider_base.call_function(client, "delete_memory", {"memory_id": "mem_123"})
 
     assert client.calls == [("delete", "mem_123")]
     assert "Deleted" in result
 
 
 @pytest.mark.asyncio
-async def test_openai_provider_call_modify():
+async def test_provider_call_modify():
     """Calling modify_memory maps to client.modify()."""
     client = FakeClient()
-    provider = OpenAIProvider(client)
 
-    result = await provider.call_function("modify_memory", {"memory_id": "mem_123", "new_content": "updated"})
+    result = await provider_base.call_function(client, "modify_memory", {"memory_id": "mem_123", "new_content": "updated"})
 
     assert client.calls == [("modify", "mem_123", "updated")]
     assert "Updated" in result
 
 
 @pytest.mark.asyncio
-async def test_openai_provider_handles_errors():
+async def test_provider_handles_errors():
     """Provider catches SupermemoryError and returns as string."""
     client = FakeClient(raise_on="add")
-    provider = OpenAIProvider(client)
 
-    result = await provider.call_function("add_to_memory", {"content": "test"})
+    result = await provider_base.call_function(client, "add_to_memory", {"content": "test"})
 
     assert "error" in result.lower() or "unreachable" in result.lower()
 
 
 @pytest.mark.asyncio
-async def test_openai_provider_unknown_function():
+async def test_provider_unknown_function():
     """Provider returns error for unknown function names."""
     client = FakeClient()
-    provider = OpenAIProvider(client)
 
-    result = await provider.call_function("unknown_function", {})
+    result = await provider_base.call_function(client, "unknown_function", {})
 
     assert "unknown" in result.lower()
 
 
 @pytest.mark.asyncio
-async def test_openai_provider_missing_arguments():
+async def test_provider_missing_arguments():
     """Provider returns error when required arguments are missing."""
     client = FakeClient()
-    provider = OpenAIProvider(client)
 
-    result = await provider.call_function("add_to_memory", {})
+    result = await provider_base.call_function(client, "add_to_memory", {})
 
     assert "error" in result.lower() or "missing" in result.lower()
 

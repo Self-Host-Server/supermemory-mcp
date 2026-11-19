@@ -18,7 +18,8 @@ from starlette.routing import Route
 from server.client import SupermemoryClient
 from server.config import get_settings
 from server.mcp_server import build_server
-from server.providers.openai import OpenAIProvider
+from server.providers import base as provider_base
+from server.providers import openai as openai_provider
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
@@ -61,8 +62,6 @@ def create_app() -> Starlette:
     app = server.streamable_http_app(transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
 
     # Add OpenAI provider endpoints
-    openai_provider = OpenAIProvider(client)
-
     async def openai_tools(request: Request) -> JSONResponse:
         """Return tools in OpenAI Function Calling format. No auth required (like /health)."""
         schema = openai_provider.get_tools_schema()
@@ -80,7 +79,7 @@ def create_app() -> Starlette:
             if not function_name:
                 return JSONResponse({"error": "Missing function_name"}, status_code=400)
 
-            result = await openai_provider.call_function(function_name, arguments)
+            result = await provider_base.call_function(client, function_name, arguments)
             return JSONResponse({"result": result, "error": None})
         except Exception as exc:
             logger.error("OpenAI call failed: %s", exc)
